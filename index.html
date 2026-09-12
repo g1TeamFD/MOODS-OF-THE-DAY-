@@ -278,6 +278,12 @@
   .mood-custom input::placeholder{
     color:var(--text-muted);
   }
+  .play-count{
+    font-size:13px;
+    color:var(--text-muted);
+    margin-bottom:18px;
+    min-height:18px;
+  }
 
   .footer-logo{
     position:fixed;
@@ -361,30 +367,31 @@
   }
   .slider-handle:active{cursor:grabbing;}
 
-  /* Rank widget (two stacked draggable cards) */
+  /* Selection widget (two clickable statement cards) */
   .rank-stack{
     display:flex;
     flex-direction:column;
     gap:10px;
   }
   .rank-card{
+    display:block;
+    width:100%;
+    text-align:left;
     background:rgba(241,234,217,0.05);
     border:1px solid var(--line);
     border-left:3px solid var(--wood-light);
-    padding:14px 16px;
+    color:var(--text-light);
+    font-family:'Work Sans', sans-serif;
+    padding:16px 18px;
     font-size:15px;
     border-radius:2px;
-    cursor:grab;
-    user-select:none;
-    touch-action:none;
+    cursor:pointer;
+    transition:background 0.15s ease, border-color 0.15s ease;
   }
-  .rank-card.dragging{
-    opacity:0.5;
-  }
-  .rank-hint{
-    font-size:12px;
-    color:var(--text-muted);
-    margin-top:10px;
+  .rank-card:hover, .rank-card:focus-visible{
+    background:rgba(232,163,61,0.08);
+    border-left-color:var(--amber);
+    outline:none;
   }
 
   /* Bucket widget */
@@ -777,7 +784,7 @@ const ARCHETYPES = {
 // After the persona result, Divergence runs one more 10-question role-play
 // ("what's the most critical issue in your organization right now?") to
 // surface which of 5 problems is most pressing, and route to that program.
-const PROBLEM_QUESTIONS = [
+const PROBLEM_QUESTIONS_ORG = [
   { dim:"north", a: "Our team knows exactly what we're working toward.", b: "Our team can't agree on what we're actually working toward." },
   { dim:"north", a: "Our decisions clearly serve one shared purpose.", b: "Our decisions often pull in different directions." },
   { dim:"silo", a: "Teams here collaborate easily across boundaries.", b: "Teams here protect their own turf." },
@@ -788,6 +795,22 @@ const PROBLEM_QUESTIONS = [
   { dim:"risk", a: "Our standards keep rising year over year.", b: "Our standards have quietly plateaued." },
   { dim:"wishing", a: "We usually get the outcomes we're aiming for.", b: "We rarely get the outcomes we're aiming for, no matter how hard we try." },
   { dim:"wishing", a: "Our goals turn into real results.", b: "Our goals stay goals \u2014 they rarely become reality." }
+];
+
+// Same structure and dimensions as above, reworded for someone answering as an
+// individual (about their team / the people around them) rather than on
+// behalf of a whole organization.
+const PROBLEM_QUESTIONS_INDIVIDUAL = [
+  { dim:"north", a: "The team I work with knows exactly what we're working toward.", b: "The team I work with can't agree on what we're actually working toward." },
+  { dim:"north", a: "The decisions around me clearly serve one shared purpose.", b: "The decisions around me often pull in different directions." },
+  { dim:"silo", a: "The people I work with collaborate easily across teams.", b: "The people I work with protect their own turf." },
+  { dim:"silo", a: "Information flows freely between the teams around me.", b: "Information gets stuck between the teams around me." },
+  { dim:"squeaky", a: "We catch process problems early, before they cost us.", b: "I only notice process problems once they're already costly." },
+  { dim:"squeaky", a: "The people around me regularly question how we do things.", b: "The people around me rarely question how we do things \u2014 we just keep going." },
+  { dim:"risk", a: "The team I work with regularly tries things that could fail.", b: "The team I work with sticks to what's already proven, even when it's stopped working." },
+  { dim:"risk", a: "The standards around me keep rising year over year.", b: "The standards around me have quietly plateaued." },
+  { dim:"wishing", a: "The team I work with usually gets the outcomes we're aiming for.", b: "The team I work with rarely gets the outcomes we're aiming for, no matter how hard we try." },
+  { dim:"wishing", a: "The goals around me turn into real results.", b: "The goals around me stay goals \u2014 they rarely become reality." }
 ];
 
 const PROBLEM_PROGRAMS = [
@@ -894,6 +917,7 @@ const loadPct = document.getElementById('loadPct');
 
 // persona game state
 let game = null; // { branch, endingId, questions, widgetTypes, index, answers }
+let originType = null; // "individual" | "organization" \u2014 how they entered, for Divergence question wording
 
 function render(id){
   if(id === "start"){
@@ -984,6 +1008,10 @@ function maybeShowBadge(fromId, toId){
   if(shouldShow){
     document.getElementById('pageBadge').classList.add('visible');
   }
+  // Track how they entered, so the Divergence problem diagnostic can be
+  // worded about "the company" (org) vs "the team around me" (individual).
+  if(fromId === "q0" && toId === "q1") originType = "individual";
+  if(fromId === "orgChoice" && toId === "END_DIVERGENCE") originType = "organization";
 }
 
 // ---- Persona mini-game ----
@@ -1012,13 +1040,14 @@ function startPersonaGame(branch, endingId){
 }
 
 function startProblemGame(){
+  const isOrg = originType === "organization";
   game = {
     branch: game.branch,
     endingId: game.endingId,
     phase: "problem",
-    progressLabel: "Organization check",
+    progressLabel: isOrg ? "Organization check" : "Team check",
     archetypes: PROBLEM_PROGRAMS,
-    questions: shuffleArray(PROBLEM_QUESTIONS),
+    questions: shuffleArray(isOrg ? PROBLEM_QUESTIONS_ORG : PROBLEM_QUESTIONS_INDIVIDUAL),
     widgetTypes: buildWidgetSequence(),
     index: 0,
     answers: []
@@ -1030,7 +1059,7 @@ function renderPersonaQuestion(){
   const q = game.questions[game.index];
   const type = game.widgetTypes[game.index];
   const prompt = game.phase === "problem"
-    ? "Which feels closer to how your organization actually runs?"
+    ? (originType === "organization" ? "Which feels closer to how your organization actually runs?" : "Which feels closer to what you see around you?")
     : "Which feels closer to you?";
   updateBar(game.index / game.questions.length);
   panel.innerHTML = `
@@ -1144,10 +1173,13 @@ function renderPersonaResult(){
 }
 
 function renderProblemIntro(){
+  const introLine = originType === "organization"
+    ? "Now we're taking a finer dive into the specific problem your organization is closest to facing right now."
+    : "Now we're taking a finer dive into the specific problem you're closest to facing in your team right now.";
   panel.innerHTML = `
     <div class="marker">One more thing</div>
     ${svgIcons.compass}
-    <p class="narration">Now we're taking a finer dive into the specific problem your organization is closest to facing right now.</p>
+    <p class="narration">${introLine}</p>
     <button class="choice" id="beginProblemBtn">Begin</button>
   `;
   document.getElementById('beginProblemBtn').addEventListener('click', ()=> startProblemGame());
@@ -1212,6 +1244,8 @@ function renderConnect(program){
   document.getElementById('backToResultBtn').addEventListener('click', ()=> renderProblemResult());
   document.getElementById('startOverBtn').addEventListener('click', ()=>{
     document.getElementById('pageBadge').classList.remove('visible');
+    userName = null;
+    userLocation = null;
     render('start');
   });
 }
@@ -1281,44 +1315,23 @@ function renderSliderWidget(host, q, autoSubmit){
 }
 
 // Rank widget: two stacked cards, drag to reorder; top card = "more true"
+// Selection widget: click the statement that's more true \u2014 no dragging
 function renderRankWidget(host, q, autoSubmit){
-  let order = shuffleArray([ {text:q.a, val:0}, {text:q.b, val:1} ]);
+  const order = shuffleArray([ {text:q.a, val:0}, {text:q.b, val:1} ]);
 
-  function confirm(){
-    submitAnswer(order[0].val === 0 ? 0.2 : 0.8);
-  }
-  autoSubmit.trigger = confirm;
-
-  function paint(){
-    host.innerHTML = `
-      <div class="rank-stack" id="stack">
-        ${order.map((item,i)=>`<div class="rank-card" draggable="true" data-i="${i}">${item.text}</div>`).join('')}
-      </div>
-      <div class="rank-hint">Drag to put the one that's more true for you on top.</div>
-      <button class="choice" id="confirmBtn" style="margin-top:20px;">Confirm</button>
-    `;
-    const cards = host.querySelectorAll('.rank-card');
-    let dragIndex = null;
-    cards.forEach(card=>{
-      card.addEventListener('dragstart', (e)=>{
-        dragIndex = Number(card.getAttribute('data-i'));
-        card.classList.add('dragging');
-      });
-      card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
-      card.addEventListener('dragover', (e)=> e.preventDefault());
-      card.addEventListener('drop', (e)=>{
-        e.preventDefault();
-        const dropIndex = Number(card.getAttribute('data-i'));
-        if(dragIndex !== null && dragIndex !== dropIndex){
-          const moved = order.splice(dragIndex, 1)[0];
-          order.splice(dropIndex, 0, moved);
-          paint();
-        }
-      });
+  host.innerHTML = `
+    <div class="rank-stack" id="stack">
+      ${order.map(item=>`<button class="rank-card" data-val="${item.val}">${item.text}</button>`).join('')}
+    </div>
+  `;
+  host.querySelectorAll('.rank-card').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      submitAnswer(Number(btn.getAttribute('data-val')));
     });
-    document.getElementById('confirmBtn').addEventListener('click', confirm);
-  }
-  paint();
+  });
+
+  // nothing selected yet on timeout \u2014 pick randomly between the two
+  autoSubmit.trigger = ()=> submitAnswer(Math.random() < 0.5 ? 0 : 1);
 }
 
 // Bucket widget: drag (or tap, on touch) one card into the left (a) or right (b) zone
@@ -1364,8 +1377,13 @@ function renderBucketWidget(host, q, autoSubmit){
 function renderEnding(id){
   const e = endings[id];
   updateBar(1);
+  const namePrefix = userName ? `${userName}, ` : "";
+  const locationSuffix = userLocation ? ` all the way from ${userLocation}` : "";
   const moodLine = (userMood && userEnergy)
-    ? `<p class="narration" style="opacity:0.75;font-size:15px;">You started today feeling ${userMood.toLowerCase()}, with ${userEnergy.toLowerCase()} energy \u2014 that's exactly where this pointed.</p>`
+    ? `<p class="narration" style="opacity:0.75;font-size:15px;">${namePrefix}you started today feeling ${userMood.toLowerCase()}, with ${userEnergy.toLowerCase()} energy${locationSuffix} \u2014 that's exactly where this pointed.</p>`
+    : "";
+  const playCountLine = totalPlays !== null
+    ? `<p class="play-count">You're one of ${totalPlays.toLocaleString()} people who've explored this so far.</p>`
     : "";
   panel.innerHTML = `
     <div class="marker">Your program</div>
@@ -1373,12 +1391,15 @@ function renderEnding(id){
     <h1>${e.title}</h1>
     <p class="narration">${e.narration}</p>
     ${moodLine}
+    ${playCountLine}
     ${e.desc ? `<div class="ending-desc">${e.desc}</div>` : ""}
     <a class="next-link" href="${e.link}" target="_blank" rel="noopener">${e.linkLabel || "Next steps"}</a>
     <button class="restart" id="restartBtn">Start over</button>
   `;
   document.getElementById('restartBtn').addEventListener('click', ()=>{
     document.getElementById('pageBadge').classList.remove('visible');
+    userName = null;
+    userLocation = null;
     render('start');
   });
 }
@@ -1397,6 +1418,26 @@ function dismissSplash(){
 splashEl.addEventListener('click', dismissSplash);
 setTimeout(dismissSplash, 3200);
 
+// ---- Shared play count (simple total, no location tracking) ----
+// Uses countapi.xyz, a free keyless hit-counter service \u2014 one shared number,
+// incremented once per page load, visible to everyone who plays. No backend
+// of our own to run or pay for; if the service is ever unreachable this
+// fails silently and the line just doesn't appear.
+let totalPlays = null;
+function paintPlayCount(){
+  const el = document.getElementById('playCountDisplay');
+  if(el && totalPlays !== null){
+    el.textContent = `You're joining ${totalPlays.toLocaleString()} others who've played this.`;
+  }
+}
+fetch('https://api.countapi.xyz/hit/teamfd-moods-of-the-day/plays')
+  .then(r => r.json())
+  .then(data => {
+    totalPlays = data.value;
+    paintPlayCount();
+  })
+  .catch(()=>{ /* counter is a nice-to-have, fail silently */ });
+
 // ---- Mood / energy check-in (replaces the old static opening screen) ----
 let userMood = null;
 let userEnergy = null;
@@ -1408,6 +1449,7 @@ function renderMoodScreen1(){
   panel.innerHTML = `
     <div class="marker">Before we start</div>
     <p class="narration">Hey \u2014 how are you today?</p>
+    <div class="play-count" id="playCountDisplay"></div>
     <div class="mood-grid" id="moodGrid">
       ${MOOD_OPTIONS.map(m => `<button class="mood-chip" data-mood="${m}">${m}</button>`).join('')}
     </div>
@@ -1416,6 +1458,7 @@ function renderMoodScreen1(){
       <button class="choice" id="moodCustomBtn" style="margin-top:0;">Use this</button>
     </div>
   `;
+  paintPlayCount();
   panel.querySelectorAll('.mood-chip').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       userMood = btn.getAttribute('data-mood');
@@ -1463,17 +1506,73 @@ const ENERGY_NOTES = {
   "Fully charged": "let's make the most of it."
 };
 
+// 10 phrasings of the same invitation \u2014 discover programs to grow yourself
+// and your teams, then a few quick honest questions. Tagged by energy so the
+// tone actually matches how someone said they're feeling, not just random.
+const PROGRAM_INTRO_LINES = [
+  { tone:"high", text:"Ready to level up? Let's explore how you can grow \u2014 and how the people around you can grow too. A few quick questions is all it takes to find the program built for exactly where you are. There's no wrong answer here, just pick what's true right now." },
+  { tone:"high", text:"Let's turn that energy into direction. A few quick questions will point you toward the program that fits best \u2014 for you, and for the team you work with. No wrong answers, just what's true right now." },
+  { tone:"high", text:"Whether it's you or your team that's ready to grow, there's a program built for that. A few quick, honest questions will get you there. No wrong answers, just what's true right now." },
+  { tone:"low", text:"If you're curious about growing \u2014 for yourself, or for the team around you \u2014 there are a few paths worth exploring. This takes just a few quiet moments: a handful of questions, no wrong answers, just what feels true right now." },
+  { tone:"low", text:"Take it easy \u2014 this won't take long. Just a few simple questions to find a program that could help you and the people around you grow. Answer honestly, that's all it takes." },
+  { tone:"low", text:"One step at a time. A few quick questions can help surface the right program to support you and the people you work with. There's no wrong answer, just what feels true right now." },
+  { tone:"any", text:"If you'd like to discover how to grow \u2014 for yourself and the teams you work with \u2014 let's explore a few programs that could help. It only takes a few quick questions. There's no wrong answer, just what's true for you right now." },
+  { tone:"any", text:"Growth doesn't happen alone \u2014 it's you, and the people around you. Let's find the program that fits where you are today. A few quick questions, no wrong answers, just honesty." },
+  { tone:"any", text:"If you're wondering what's next \u2014 for yourself, or for your team \u2014 a few honest answers will point the way. No right or wrong here, just what's true for you right now." },
+  { tone:"any", text:"Growth starts with a little honesty. If you're curious how to support yourself \u2014 and the people around you \u2014 a few quick questions will point you to the right program. Just answer what feels true." }
+];
+
+function energyBucket(energy){
+  if(["Running on empty", "Low"].includes(energy)) return "low";
+  if(["High", "Fully charged"].includes(energy)) return "high";
+  return "any";
+}
+
+function pickProgramIntro(energy){
+  const bucket = energyBucket(energy);
+  const matches = PROGRAM_INTRO_LINES.filter(l => l.tone === bucket || l.tone === "any");
+  const pool = matches.length ? matches : PROGRAM_INTRO_LINES;
+  return pool[Math.floor(Math.random() * pool.length)].text;
+}
+
 function renderMoodAck(){
   const moodLine = MOOD_NOTES[userMood] || `Feeling ${userMood.toLowerCase()} \u2014 noted.`;
   const energyLine = ENERGY_NOTES[userEnergy] || "let's get started.";
+  const introLine = pickProgramIntro(userEnergy);
   panel.innerHTML = `
     <div class="marker">Got it</div>
     ${svgIcons.bridge}
     <p class="narration">${moodLine} And with ${userEnergy.toLowerCase()} energy, ${energyLine}</p>
-    <p class="narration">This will take a few quick questions to find the right program for you. There are no wrong answers, just pick what's true right now.</p>
+    <p class="narration">${introLine}</p>
+    <p class="narration">We have a few programs that might help you improve yourself and the people around you \u2014 keep exploring if you'd like to know more.</p>
     <button class="choice" id="beginBtn">Begin</button>
   `;
-  document.getElementById('beginBtn').addEventListener('click', ()=> render('q0'));
+  document.getElementById('beginBtn').addEventListener('click', ()=> renderNameLocation());
+}
+
+let userName = null;
+let userLocation = null;
+
+function renderNameLocation(){
+  panel.innerHTML = `
+    <div class="marker">Almost there</div>
+    ${svgIcons.compass}
+    <p class="narration">Before we go on \u2014 what should we call you, and where are you joining from?</p>
+    <div class="mood-custom" style="margin-bottom:12px;">
+      <input type="text" id="nameInput" placeholder="Your name" maxlength="40">
+    </div>
+    <div class="mood-custom">
+      <input type="text" id="locationInput" placeholder="Where you're from" maxlength="40">
+    </div>
+    <button class="choice" id="nameContinueBtn">Continue</button>
+  `;
+  document.getElementById('nameContinueBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('nameInput').value.trim();
+    const location = document.getElementById('locationInput').value.trim();
+    userName = name || null;
+    userLocation = location || null;
+    render('q0');
+  });
 }
 
 render('start');
