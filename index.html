@@ -667,11 +667,10 @@ const endings = {
     link: DEFAULT_LINK
   },
   END_MINDSET_CONTACT: {
-    title: "Let's Talk",
-    narration: "Based on your answers, this is worth a direct conversation rather than a fixed program.",
-    desc: "Contact us for any other mindset-related assessments we have in place \u2014 we can explore or discuss the right options together.",
-    link: "mailto:mail@fundamentaldecisions.com?subject=Mindset%20Assessment%20Inquiry",
-    linkLabel: "Email us to discuss options"
+    title: "5DGM",
+    moodSuffix: "let's explore how you can measure & improve your mindset to help you achieve success.",
+    link: "https://www.growthconsultingasia.com/control-your-destiny",
+    linkLabel: "Explore 5DGM"
   },
   END_INFINITY_DOCTOR: {
     title: "Project Infinity \u2014 Doctor track",
@@ -1380,8 +1379,9 @@ function renderEnding(id){
   updateBar(1);
   const namePrefix = userName ? `${userName}, ` : "";
   const locationSuffix = userLocation ? ` all the way from ${userLocation}` : "";
+  const moodSuffix = e.moodSuffix || "that's exactly where this pointed.";
   const moodLine = (userMood && userEnergy)
-    ? `<p class="narration" style="opacity:0.75;font-size:15px;">${namePrefix}you started today feeling ${userMood.toLowerCase()}, with ${userEnergy.toLowerCase()} energy${locationSuffix} \u2014 that's exactly where this pointed.</p>`
+    ? `<p class="narration" style="opacity:0.75;font-size:15px;">${namePrefix}you started today feeling ${userMood.toLowerCase()}, with ${userEnergy.toLowerCase()} energy${locationSuffix} \u2014 ${moodSuffix}</p>`
     : "";
   const playCountLine = totalPlays !== null
     ? `<p class="play-count">You're one of ${totalPlays.toLocaleString()} people who've explored this so far.</p>`
@@ -1390,11 +1390,12 @@ function renderEnding(id){
     <div class="marker">Your program</div>
     ${svgIcons.bridge}
     <h1>${e.title}</h1>
-    <p class="narration">${e.narration}</p>
+    ${e.narration ? `<p class="narration">${e.narration}</p>` : ""}
     ${moodLine}
     ${playCountLine}
     ${e.desc ? `<div class="ending-desc">${e.desc}</div>` : ""}
     <a class="next-link" href="${e.link}" target="_blank" rel="noopener">${e.linkLabel || "Next steps"}</a>
+    ${e.link2 ? `<a class="next-link" href="${e.link2}" target="_blank" rel="noopener" style="margin-left:10px;">${e.linkLabel2 || "Learn more"}</a>` : ""}
     <button class="restart" id="restartBtn">Start over</button>
   `;
   document.getElementById('restartBtn').addEventListener('click', ()=>{
