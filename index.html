@@ -403,35 +403,27 @@
   .bucket-zone{
     flex:1;
     min-height:110px;
+    background:rgba(241,234,217,0.05);
     border:1px dashed var(--line);
     border-radius:4px;
     padding:12px;
-    font-size:13px;
-    color:var(--text-muted);
+    font-family:'Work Sans', sans-serif;
+    font-size:15px;
+    line-height:1.4;
+    color:var(--text-light);
     display:flex;
     flex-direction:column;
     align-items:center;
-    justify-content:flex-start;
+    justify-content:center;
     gap:8px;
     text-align:center;
+    transition:background 0.15s ease, border-color 0.15s ease;
   }
-  .bucket-zone.over{
+  .bucket-zone:hover, .bucket-zone:focus-visible{
+    background:rgba(232,163,61,0.08);
     border-color:var(--amber);
-    background:rgba(232,163,61,0.06);
+    outline:none;
   }
-  .drag-card{
-    background:var(--amber);
-    color:var(--bg-deep);
-    font-weight:600;
-    font-size:14px;
-    padding:14px 16px;
-    border-radius:2px;
-    cursor:grab;
-    user-select:none;
-    touch-action:none;
-    max-width:220px;
-  }
-  .drag-card.dragging{opacity:0.4;}
 
   /* Persona result card */
   .persona-title{
@@ -1340,37 +1332,19 @@ function renderBucketWidget(host, q, autoSubmit){
   const left = flip ? { text:q.b, val:1 } : { text:q.a, val:0 };
   const right = flip ? { text:q.a, val:0 } : { text:q.b, val:1 };
   host.innerHTML = `
-    <p style="font-size:14px;color:var(--text-muted);margin-bottom:14px;">Drag the card to the side that fits you.</p>
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:14px;">Tap the side that fits you.</p>
     <div class="bucket-row">
-      <div class="bucket-zone" id="zoneA">${left.text}</div>
-      <div class="bucket-zone" id="zoneB">${right.text}</div>
-    </div>
-    <div style="display:flex;justify-content:center;margin-top:18px;">
-      <div class="drag-card" id="card" draggable="true">Where do I belong?</div>
+      <button class="bucket-zone" id="zoneA" style="cursor:pointer;">${left.text}</button>
+      <button class="bucket-zone" id="zoneB" style="cursor:pointer;">${right.text}</button>
     </div>
   `;
-  const card = document.getElementById('card');
   const zoneA = document.getElementById('zoneA');
   const zoneB = document.getElementById('zoneB');
 
-  card.addEventListener('dragstart', ()=> card.classList.add('dragging'));
-  card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
-
-  [ [zoneA,left.val], [zoneB,right.val] ].forEach(([zone,val])=>{
-    zone.addEventListener('dragover', (e)=>{ e.preventDefault(); zone.classList.add('over'); });
-    zone.addEventListener('dragleave', ()=> zone.classList.remove('over'));
-    zone.addEventListener('drop', (e)=>{
-      e.preventDefault();
-      zone.classList.remove('over');
-      submitAnswer(val);
-    });
-  });
-
-  // touch fallback: native drag events are unreliable on mobile, so tapping a zone also works
   zoneA.addEventListener('click', ()=> submitAnswer(left.val));
   zoneB.addEventListener('click', ()=> submitAnswer(right.val));
 
-  // no drag/tap made a choice yet, so pick randomly between the two on timeout
+  // no tap made a choice yet, so pick randomly between the two on timeout
   autoSubmit.trigger = ()=> submitAnswer(Math.random() < 0.5 ? left.val : right.val);
 }
 
