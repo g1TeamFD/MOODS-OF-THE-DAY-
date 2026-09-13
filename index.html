@@ -597,7 +597,7 @@ const scenes = {
     icon: "compass",
     narration: "Are you looking to explore a growth mindset assessment, or take on an experiential journey?",
     choices: [
-      { text: "Growth mindset assessment.", next: "END_5DGM" },
+      { text: "Growth mindset assessment.", next: "END_MINDSET_CONTACT" },
       { text: "Experiential journey.", next: "END_DIVERGENCE" }
     ],
     load: 1
@@ -666,11 +666,12 @@ const endings = {
     desc: "[Placeholder] Divergence is a growth track for working professionals looking to develop within their organizations. Swap this copy for the actual program description.",
     link: DEFAULT_LINK
   },
-  END_5DGM: {
-    title: "5DGM",
-    narration: "Based on your answers, this is the program for you.",
-    link: "https://www.5dgm.net/",
-    linkLabel: "Click to explore more about 5DGM from GCA"
+  END_MINDSET_CONTACT: {
+    title: "Let's Talk",
+    narration: "Based on your answers, this is worth a direct conversation rather than a fixed program.",
+    desc: "Contact us for any other mindset-related assessments we have in place \u2014 we can explore or discuss the right options together.",
+    link: "mailto:mail@fundamentaldecisions.com?subject=Mindset%20Assessment%20Inquiry",
+    linkLabel: "Email us to discuss options"
   },
   END_INFINITY_DOCTOR: {
     title: "Project Infinity \u2014 Doctor track",
@@ -700,7 +701,7 @@ const BRANCH_OF_ENDING = {
   END_INFINITY_DOCTOR: "INFINITY",
   END_INFINITY_ENGINEER: "INFINITY",
   END_INFINITY_BUSINESS: "INFINITY",
-  END_5DGM: null
+  END_MINDSET_CONTACT: null
 };
 
 // Each question: poleA = value 0, poleB = value 1, dim = which archetype dimension this question measures
