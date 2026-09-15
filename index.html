@@ -1219,6 +1219,13 @@ function renderPersonaResult(){
       <a class="next-link" href="${CANVA_LINKS[game.branch]}" target="_blank" rel="noopener">Moods of the Day guide</a>
     </div>
   `;
+  // Personalize the lean line with the name, lowercasing its first letter
+  // so "Name, this is..." reads naturally after the comma.
+  const rawLine = LEAN_LINES[Math.floor(Math.random() * LEAN_LINES.length)];
+  const leanLine = userName
+    ? `${userName}, ${rawLine.charAt(0).toLowerCase()}${rawLine.slice(1)}`
+    : rawLine;
+  const { dateStr, timeStr } = formatNow();
   panel.innerHTML = `
     <div class="marker">Your persona, for now</div>
     ${personaIcons[archetype.dim]}
@@ -1226,7 +1233,12 @@ function renderPersonaResult(){
     <div class="persona-traits">
       ${archetype.traits.map(t=>`<span class="trait-pill">${t}</span>`).join('')}
     </div>
-    <p class="narration">${LEAN_LINES[Math.floor(Math.random() * LEAN_LINES.length)]}</p>
+    <p class="narration">${leanLine}</p>
+    <div class="persona-traits" style="opacity:0.7;">
+      ${userLocation ? `<span class="trait-pill">${userLocation}</span>` : ""}
+      <span class="trait-pill">${dateStr}</span>
+      <span class="trait-pill">${timeStr}</span>
+    </div>
     <div class="other-personas">
       <div class="other-personas-label">Also worth exploring</div>
       <div class="persona-traits">
@@ -1543,99 +1555,6 @@ soundToggle.addEventListener('click', ()=>{
   }
 });
 
-// ---- Themed sounds per program: 3 short pleasant tonal phrases each ----
-// Pure oscillator synthesis, no noise bed. Each theme has 3 variants; one
-// plays at random every few seconds while its intermission image is showing.
-function tone(ctx, freq, startOffset, duration, volume, type){
-  const now = ctx.currentTime + startOffset;
-  const osc = ctx.createOscillator();
-  const g = ctx.createGain();
-  osc.type = type || 'sine';
-  osc.frequency.setValueAtTime(freq, now);
-  g.gain.setValueAtTime(0, now);
-  g.gain.linearRampToValueAtTime(volume, now + 0.04);
-  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  osc.connect(g);
-  g.connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + duration + 0.05);
-}
-function glide(ctx, fromFreq, toFreq, startOffset, duration, volume, type){
-  const now = ctx.currentTime + startOffset;
-  const osc = ctx.createOscillator();
-  const g = ctx.createGain();
-  osc.type = type || 'sine';
-  osc.frequency.setValueAtTime(fromFreq, now);
-  osc.frequency.exponentialRampToValueAtTime(toFreq, now + duration);
-  g.gain.setValueAtTime(0, now);
-  g.gain.linearRampToValueAtTime(volume, now + 0.04);
-  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  osc.connect(g);
-  g.connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + duration + 0.05);
-}
-
-const THEME_SOUNDS = {
-  // Nomadic: airy, gentle, sine tones
-  nomadic: [
-    (ctx, v)=>{ tone(ctx, 392.0, 0, 1.2, v, 'sine'); tone(ctx, 523.3, 0.25, 1.4, v*0.9, 'sine'); },
-    (ctx, v)=>{ tone(ctx, 659.3, 0, 1.8, v, 'sine'); },
-    (ctx, v)=>{ tone(ctx, 523.3, 0, 1.0, v, 'sine'); tone(ctx, 440.0, 0.3, 1.0, v*0.85, 'sine'); tone(ctx, 392.0, 0.6, 1.1, v*0.75, 'sine'); }
-  ],
-  // Project Infinity: lower, moodier, triangle tones with a minor interval
-  infinity: [
-    (ctx, v)=>{ tone(ctx, 220.0, 0, 1.3, v, 'triangle'); tone(ctx, 261.6, 0, 1.3, v*0.8, 'triangle'); },
-    (ctx, v)=>{ tone(ctx, 164.8, 0, 2.4, v*0.9, 'triangle'); },
-    (ctx, v)=>{ glide(ctx, 146.8, 207.7, 0, 0.9, v, 'triangle'); }
-  ],
-  // Divergence: warm, professional, major triad, sine
-  divergence: [
-    (ctx, v)=>{ tone(ctx, 261.6, 0, 0.9, v, 'sine'); tone(ctx, 329.6, 0.2, 0.9, v*0.9, 'sine'); tone(ctx, 392.0, 0.4, 1.0, v*0.85, 'sine'); },
-    (ctx, v)=>{ tone(ctx, 196.0, 0, 1.6, v, 'sine'); },
-    (ctx, v)=>{ tone(ctx, 392.0, 0, 0.8, v, 'sine'); tone(ctx, 329.6, 0.18, 0.8, v*0.9, 'sine'); tone(ctx, 261.6, 0.36, 0.9, v*0.85, 'sine'); }
-  ],
-  // Bootcamp: bright, playful, quick triangle notes
-  bootcamp: [
-    (ctx, v)=>{ tone(ctx, 523.3, 0, 0.28, v, 'triangle'); tone(ctx, 659.3, 0.13, 0.28, v*0.9, 'triangle'); tone(ctx, 784.0, 0.26, 0.35, v*0.85, 'triangle'); },
-    (ctx, v)=>{ tone(ctx, 784.0, 0, 0.14, v, 'triangle'); tone(ctx, 784.0, 0.16, 0.16, v*0.9, 'triangle'); },
-    (ctx, v)=>{ glide(ctx, 523.3, 784.0, 0, 0.3, v, 'triangle'); }
-  ]
-};
-
-let ambientState = null;
-
-function playRandomThemeSound(themeKey){
-  const ctx = getAudioCtx();
-  if(!ctx || chimeVolume <= 0) return;
-  const variants = THEME_SOUNDS[themeKey];
-  if(!variants) return;
-  const fn = variants[Math.floor(Math.random() * variants.length)];
-  fn(ctx, chimeVolume * 0.3);
-}
-
-function startAmbient(themeKey){
-  stopAmbient();
-  if(!THEME_SOUNDS[themeKey] || chimeVolume <= 0) return;
-  playRandomThemeSound(themeKey);
-  let timer = null;
-  function scheduleNext(){
-    const delay = 3500 + Math.random() * 3000;
-    timer = setTimeout(()=>{
-      playRandomThemeSound(themeKey);
-      scheduleNext();
-    }, delay);
-  }
-  scheduleNext();
-  ambientState = { cancel: ()=>{ if(timer) clearTimeout(timer); } };
-}
-
-function stopAmbient(){
-  if(!ambientState) return;
-  ambientState.cancel();
-  ambientState = null;
-}
-
 // ---- Program intermission: fade the themed image in, hold ~20s, fade out ----
 const intermissionEl = document.getElementById('intermission');
 const intermissionImg = document.getElementById('intermissionImg');
@@ -1646,7 +1565,6 @@ function showIntermission(branchKey, callback){
 
   intermissionImg.src = INTERMISSION_SRC[key];
   intermissionEl.classList.add('visible');
-  startAmbient(key);
 
   let done = false;
   let autoTimer = null;
@@ -1656,7 +1574,6 @@ function showIntermission(branchKey, callback){
     if(autoTimer) clearTimeout(autoTimer);
     intermissionEl.classList.remove('visible');
     intermissionEl.removeEventListener('click', proceed);
-    stopAmbient();
     setTimeout(callback, 720);
   }
   intermissionEl.addEventListener('click', proceed);
@@ -1827,8 +1744,33 @@ function renderNameLocation(){
     const location = document.getElementById('locationInput').value.trim();
     userName = name || null;
     userLocation = location || null;
-    render('q0');
+    renderPersonSummary();
   });
+}
+
+function formatNow(){
+  const now = new Date();
+  return {
+    dateStr: now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    timeStr: now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  };
+}
+
+function renderPersonSummary(){
+  const { dateStr, timeStr } = formatNow();
+  panel.innerHTML = `
+    <div class="marker">Your moment</div>
+    ${svgIcons.compass}
+    <p class="persona-title">${userName || "Friend"}</p>
+    <div class="persona-traits">
+      ${userLocation ? `<span class="trait-pill">${userLocation}</span>` : ""}
+      <span class="trait-pill">${dateStr}</span>
+      <span class="trait-pill">${timeStr}</span>
+    </div>
+    <p class="narration">This is your starting point, right here, right now. Take a screenshot if you'd like to remember this moment before we begin.</p>
+    <button class="choice" id="summaryContinueBtn">Continue</button>
+  `;
+  document.getElementById('summaryContinueBtn').addEventListener('click', ()=> render('q0'));
 }
 
 render('start');
